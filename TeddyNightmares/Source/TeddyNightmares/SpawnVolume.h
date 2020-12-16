@@ -6,6 +6,8 @@
 #include "GameFramework/Actor.h"
 #include "ActorConEvento.h"
 #include "Enemy.h"
+#include "Components/AudioComponent.h"
+#include "Sound/SoundCue.h"
 #include "SpawnVolume.generated.h"
 
 
@@ -13,6 +15,9 @@ UCLASS()
 class TEDDYNIGHTMARES_API ASpawnVolume : public AActor
 {
 	GENERATED_BODY()
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Audio, meta = (AllowPrivateAccess = "true"))
+		class USoundCue* PortalSoundCue;
 	
 public:	
 	// Sets default values for this actor's properties
@@ -55,5 +60,8 @@ private:
 public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
+
+private:
+	UAudioComponent* PortalAudioComponent;
 
 };

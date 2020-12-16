@@ -20,6 +20,15 @@ ASpawnVolume::ASpawnVolume()
 
 	SpawnDelayRangeLow = 1.0f;
 	SpawnDelayRangeHigh = 1.5f;
+
+	static ConstructorHelpers::FObjectFinder<USoundCue> PortalSoundCueObject(TEXT("SoundCue'/Game/Audio/PortalCue.PortalCue'"));
+
+	if (PortalSoundCueObject.Succeeded()) {
+		PortalSoundCue = PortalSoundCueObject.Object;
+
+		PortalAudioComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("StepAudioComponent"));
+		PortalAudioComponent->SetupAttachment(RootComponent);
+	}
 }
 
 // Called when the game starts or when spawned
@@ -29,6 +38,10 @@ void ASpawnVolume::BeginPlay()
 
 	SpawnDelay = FMath::FRandRange(SpawnDelayRangeLow, SpawnDelayRangeHigh);
 	GetWorldTimerManager().SetTimer(SpawnTimer, this, &ASpawnVolume::SpawnEnemy, SpawnDelay, false);
+
+	if (PortalAudioComponent && PortalSoundCue) {
+		PortalAudioComponent->SetSound(PortalSoundCue);
+	}
 }
 
 // Called every frame
@@ -79,6 +92,9 @@ void ASpawnVolume::SpawnEnemy()
 			//SpawnedEnemy->GetMesh()->SetSimulatePhysics(true);
 			SpawnedEnemy->GetController()->GetCharacter()->AIControllerClass = AEnemyAIController::StaticClass();
 
+			if (PortalAudioComponent && PortalSoundCue && !PortalAudioComponent->IsPlaying()) {
+				PortalAudioComponent->Play(0.f);
+			}
 
 			SpawnDelay = FMath::FRandRange(SpawnDelayRangeLow, SpawnDelayRangeHigh);
 			GetWorldTimerManager().SetTimer(SpawnTimer, this, &ASpawnVolume::SpawnEnemy, SpawnDelay, false);

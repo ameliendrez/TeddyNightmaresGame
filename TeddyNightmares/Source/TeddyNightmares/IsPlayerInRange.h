@@ -9,9 +9,17 @@
 /**
  * 
  */
-UCLASS()
+UCLASS(Blueprintable)
 class TEDDYNIGHTMARES_API UIsPlayerInRange : public UBTService_BlackboardBase
 {
 	GENERATED_BODY()
+
+public:
+	UIsPlayerInRange();
+	void OnBecomeRelevant(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
+
+private:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI, meta = (AllowPrivateAccess = "true"))
+		float AttackRange = 25.0f;
 	
 };

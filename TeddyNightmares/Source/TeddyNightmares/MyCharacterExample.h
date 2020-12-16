@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "Components/AudioComponent.h"
+#include "Sound/SoundCue.h"
 #include "PickUp.h"
 #include "MyCharacterExample.generated.h"
 
@@ -41,13 +43,62 @@ class TEDDYNIGHTMARES_API AMyCharacterExample : public ACharacter
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Collision, meta = (AllowPrivateAccess = "true"))
 		class UBoxComponent* CollisionBox;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Audio, meta = (AllowPrivateAccess = "true"))
+		class USoundCue* StepsSoundCue;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Audio, meta = (AllowPrivateAccess = "true"))
+		class USoundCue* PickupSoundCue;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Audio, meta = (AllowPrivateAccess = "true"))
+		class USoundCue* DropBlockSoundCue;
+	
 public:
 	// Sets default values for this character's properties
 	AMyCharacterExample();
 
+	UAnimMontage* GetMontage() const;
+	bool GetIsAlive();
+	void Kill();
+
+	UFUNCTION(BlueprintCallable)
+		int32 GetQuantityCollected();
+
+	UFUNCTION()
+		void AddBlockCollected();
+
+	UFUNCTION(BlueprintCallable)
+		int32 GetTotalQuantity();
+
+	UFUNCTION(BlueprintCallable)
+		bool GetIsPlayerWin();
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+		bool bIsAlive;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+		int32 QuantityBlocksCharacter;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+		int32 TotalBlocksCharacter;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+		bool bPlayerWin;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	        bool bFinishDieAnimation;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation", meta = (AllowPrivateAccess = "true"))
+		UAnimMontage* montage;
+
+	UPROPERTY()
+		USkeletalMesh* SkeletalDoll;
+
+	UPROPERTY()
+		UAnimBlueprint* AnimDoll;
 
 public:
 	// Called every frame
@@ -91,6 +142,7 @@ public:
 
 	FComponentQueryParams DefaultComponentQueryParams;
 	FCollisionResponseParams DefaultResponseParam;
+	
 
 protected:
 
@@ -124,6 +176,13 @@ private:
 	class UAIPerceptionStimuliSourceComponent* Stimulus;
 
 	void InitStimulus();
+
+	UAudioComponent* StepAudioComponent;
+
+	UAudioComponent* PickupAudioComponent;
+	
+	UAudioComponent* DropBlockAudioComponent;
+	
 
 public:
 	/** Returns Mesh1P subobject **/

@@ -6,6 +6,7 @@
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/InputSettings.h"
 #include "HeadMountedDisplayFunctionLibrary.h"
@@ -86,12 +87,54 @@ AMyCharacterExample::AMyCharacterExample()
 	InitStimulus();
 
 	CollisionBox = CreateDefaultSubobject<UBoxComponent>(TEXT("CollisionBox"));
+	CollisionBox->SetSimulatePhysics(true);
+	CollisionBox->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 
-	if (CollisionBox)
+	GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	GetMesh()->SetSimulatePhysics(true);
+
+	bIsAlive = true;
+	bFinishDieAnimation = false;
+	static ConstructorHelpers::FObjectFinder<USkeletalMesh> skeletalDollObj(TEXT("SkeletalMesh'/Game/Doll/DollCharacter.DollCharacter'"));
+	static ConstructorHelpers::FObjectFinder<UAnimBlueprint> AnimDollObj(TEXT("AnimBlueprint'/Game/Doll/DollAnim_BP.DollAnim_BP'"));
+
+	if(skeletalDollObj.Succeeded())
 	{
-		FVector const extent(8.0f);
-		CollisionBox->SetBoxExtent(extent, false);
-		CollisionBox->SetCollisionProfileName("NoCollision");
+		SkeletalDoll = skeletalDollObj.Object;
+	}
+
+	if(AnimDollObj.Succeeded())
+	{
+		AnimDoll = AnimDollObj.Object;
+	}
+
+	QuantityBlocksCharacter = 0;
+	TotalBlocksCharacter = 5;
+	bPlayerWin = false;
+
+	static ConstructorHelpers::FObjectFinder<USoundCue> StepsSoundCueObject(TEXT("SoundCue'/Game/Audio/FootStep_SoundCue.FootStep_SoundCue'"));
+	static ConstructorHelpers::FObjectFinder<USoundCue> PickupSoundCueObject(TEXT("SoundCue'/Game/Audio/pickBlock.PickBlock'"));
+	static ConstructorHelpers::FObjectFinder<USoundCue> DropBlockSoundCueObject(TEXT("SoundCue'/Game/Audio/DropBlock.DropBlock'"));
+
+	if (StepsSoundCueObject.Succeeded()) {
+		StepsSoundCue = StepsSoundCueObject.Object;
+
+		StepAudioComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("StepAudioComponent"));
+		StepAudioComponent->SetupAttachment(RootComponent);
+	}
+
+	if (PickupSoundCueObject.Succeeded()) {
+		PickupSoundCue = PickupSoundCueObject.Object;
+
+		PickupAudioComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("PickUpAudioComponent"));
+		PickupAudioComponent->SetupAttachment(RootComponent);
+	}
+
+	if (DropBlockSoundCueObject.Succeeded()) {
+		DropBlockSoundCue = DropBlockSoundCueObject.Object;
+
+		DropBlockAudioComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("DropBlockAudioComponent"));
+		DropBlockAudioComponent->SetupAttachment(RootComponent);
 	}
 
 }
@@ -115,6 +158,18 @@ void AMyCharacterExample::BeginPlay()
 		CollisionBox->AttachToComponent(GetMesh(), rules, "hand_r_socket");
 		CollisionBox->SetRelativeLocation(FVector(-7.0f, 0.0f, 0.0f));
 	}
+
+        if (StepAudioComponent && StepsSoundCue) {
+			StepAudioComponent->SetSound(StepsSoundCue);
+        }
+
+		if (PickupAudioComponent && PickupSoundCue) {
+			PickupAudioComponent->SetSound(PickupSoundCue);
+		}
+
+		if (DropBlockAudioComponent && DropBlockSoundCue) {
+			DropBlockAudioComponent->SetSound(StepsSoundCue);
+		}
 }
 
 // Called every frame
@@ -150,12 +205,33 @@ void AMyCharacterExample::Tick(float DeltaTime)
 
 	if (bHoldingItem)
 	{
-		const float CubeRelativePositionX = (bIsFirstPersonCameraActive) ? 15.0f : -25.0f;
-		const float CubeRelativePositionY = (bIsFirstPersonCameraActive) ? 0.0f : -28.0f;
-		const float CubeRelativePositionZ = (bIsFirstPersonCameraActive) ? -30.0f : -45.0f;
+		const float CubeRelativePositionX = (bIsFirstPersonCameraActive) ? 0.0f : -20.0f;
+		const float CubeRelativePositionY = (bIsFirstPersonCameraActive) ? 0.0f : -20.0f;
+		const float CubeRelativePositionZ = (bIsFirstPersonCameraActive) ? 0.0f : -30.0f;
 		HoldingComponent->SetRelativeLocation(FVector(CubeRelativePositionX, CubeRelativePositionY, CubeRelativePositionZ));
 	}
-	
+
+	if(!bIsAlive && GetMesh()->GetAnimInstance()->Montage_GetIsStopped(montage))
+	{
+		bFinishDieAnimation = true;
+	}
+
+	if(!bIsAlive && bFinishDieAnimation)
+	{
+		if (SkeletalDoll)
+		{
+			GetMesh()->SetSkeletalMesh(SkeletalDoll);
+		}
+
+		if (AnimDoll)
+		{
+			GetMesh()->SetAnimClass(AnimDoll->GetAnimBlueprintGeneratedClass());
+		}
+	}
+
+        if(QuantityBlocksCharacter == TotalBlocksCharacter) {
+		bPlayerWin = true;
+        }
 }
 
 // Called to bind functionality to input
@@ -186,7 +262,7 @@ void AMyCharacterExample::SetupPlayerInputComponent(UInputComponent* PlayerInput
 
 void AMyCharacterExample::MoveForward(float Value)
 {
-	if ((Controller != NULL) && (Value != 0.0f))
+	if ((Controller != NULL) && (Value != 0.0f) && bIsAlive)
 	{
 		// find out which way is forward
 		const FRotator Rotation = Controller->GetControlRotation();
@@ -194,13 +270,20 @@ void AMyCharacterExample::MoveForward(float Value)
 
 		// get forward vector
 		const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+
+		if (StepAudioComponent && StepsSoundCue && !StepAudioComponent->IsPlaying()) {
+			StepAudioComponent->Play();
+		}
+
 		AddMovementInput(Direction, Value);
+
+		
 	}
 }
 
 void AMyCharacterExample::MoveRight(float Value)
 {
-	if ((Controller != NULL) && (Value != 0.0f))
+	if ((Controller != NULL) && (Value != 0.0f) && bIsAlive)
 	{
 		// find out which way is right
 		const FRotator Rotation = Controller->GetControlRotation();
@@ -208,8 +291,14 @@ void AMyCharacterExample::MoveRight(float Value)
 
 		// get right vector 
 		const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+
+		if (StepAudioComponent && StepsSoundCue && !StepAudioComponent->IsPlaying()) {
+			StepAudioComponent->Play(0.f);
+		}
+
 		// add movement in that direction
 		AddMovementInput(Direction, Value);
+
 	}
 }
 
@@ -245,6 +334,11 @@ void AMyCharacterExample::ToggleItemPickup()
 		if (!bHoldingItem)
 		{
 			CurrentItem = NULL;
+			if (DropBlockAudioComponent && DropBlockSoundCue && !DropBlockAudioComponent->IsPlaying()) {
+				DropBlockAudioComponent->Play(0.0f);
+			}
+		} else if (PickupAudioComponent && PickupSoundCue && !PickupAudioComponent->IsPlaying()) {
+			PickupAudioComponent->Play(0.0f);
 		}
 	}
 }
@@ -272,4 +366,40 @@ void AMyCharacterExample::InitStimulus()
 	Stimulus = CreateDefaultSubobject<UAIPerceptionStimuliSourceComponent>(TEXT("stimulus"));
 	Stimulus->RegisterForSense(TSubclassOf<UAISense_Sight>());
 	Stimulus->RegisterWithPerceptionSystem();
+}
+
+UAnimMontage* AMyCharacterExample::GetMontage() const
+{
+	return montage;
+}
+
+bool AMyCharacterExample::GetIsAlive()
+{
+	return bIsAlive;
+}
+
+void AMyCharacterExample::Kill()
+{
+	if (montage && bIsAlive)
+	{
+		bIsAlive = false;
+		PlayAnimMontage(montage);
+	}
+}
+
+
+int32 AMyCharacterExample::GetQuantityCollected() {
+	return QuantityBlocksCharacter;
+}
+
+void AMyCharacterExample::AddBlockCollected() {
+	QuantityBlocksCharacter = QuantityBlocksCharacter + 1;
+}
+
+int32 AMyCharacterExample::GetTotalQuantity() {
+	return TotalBlocksCharacter;
+}
+
+bool AMyCharacterExample::GetIsPlayerWin() {
+	return bPlayerWin;
 }

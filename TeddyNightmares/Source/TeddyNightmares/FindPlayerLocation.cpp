@@ -11,6 +11,7 @@
 #include "Runtime/Engine/Classes/Kismet/GameplayStatics.h"
 #include "GameFramework/Character.h"
 #include "blackboard_keys.h"
+#include "Enemy.h"
 
 UFindPlayerLocation::UFindPlayerLocation(FObjectInitializer const& object_initializer)
 {
@@ -26,6 +27,8 @@ EBTNodeResult::Type UFindPlayerLocation::ExecuteTask(UBehaviorTreeComponent& Own
 	// Get player location to use as an origin
 	FVector const PlayerLocation = Player->GetActorLocation();
 
+	AEnemy* const enemy = Cast<AEnemy>(cont->GetPawn());
+	
 	if (bSearchRandom)
 	{
 		FNavLocation Location;
@@ -34,13 +37,15 @@ EBTNodeResult::Type UFindPlayerLocation::ExecuteTask(UBehaviorTreeComponent& Own
 		UNavigationSystemV1* const NavSystem = UNavigationSystemV1::GetCurrent(GetWorld());
 		if (NavSystem->GetRandomPointInNavigableRadius(PlayerLocation, SearchRadius, Location, nullptr))
 		{
-			cont->GetBlackboard()->SetValueAsVector(BbKeys::TargetLocation, Location.Location);
+			cont->GetBlackboard()->SetValueAsVector(BbKeys::TargetLocation, Location.Location);			
 		}
 	}
 	else
 	{
 		cont->GetBlackboard()->SetValueAsVector(BbKeys::TargetLocation, PlayerLocation);
 	}
+	enemy->setIsSeenPlayer(true);
+	enemy->ToggleFire(true);
 
 	// Finish with success
 	FinishLatentTask(OwnerComp, EBTNodeResult::Succeeded);
